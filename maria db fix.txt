@@ -1,0 +1,46 @@
+kubectl scale -n npci-ns statefulset mariadb-mariadb-galera-replicas-e
+
+kubectl delete pod mariadb-mariadb-galera-e mariadb-mariadb-galera-1 mariadb-mariadb-galera-2-n npci-ns
+
+kubectl exec it maria fixon npci-ns bash
+
+cd /mnt/data
+
+sed -i 's/safe to bootstrap: 0/safe_to_bootstrap: 1/g' grastate.dat
+
+kubectl delete f mf.yaml -n npci-n
+
+kubectl scale -n npci-ns statefulset mariadb-mariadb-galera-replicas-3
+-----------------------------------------------------------------------------------------------------------------
+cat mf.yaml
+
+apiversion: v1
+kind: Pod
+metadata:
+  name: maria-fix
+  namespace: npci-ns
+spec:
+volumes:
+   - name: maria
+     persistentVolumeclaim:
+      claimName: data-mariadb-mariadb-galera-0
+   - name: marial
+     persistentVolumeClaim:
+      claimName: data-mariadb-mariadb-galera-1
+   - name: maria2
+     persistentVolumeClaim:
+      claimName: data-mariadb-mariadb-galera-2
+containers:
+   - name: nginx
+     image: repo.npci.org.in:443/nginx:latest
+     ports:
+       - containerPort: 88
+         name: "http-server
+     volumeMounts:
+       - mountPath: "/mnt"
+         name: maria
+       - mountPath: "/mnt"
+         name: maria1
+       - mountPath: "/mnt1"
+         name: maria2
+         mountPath: "/mnt2"

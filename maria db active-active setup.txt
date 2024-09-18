@@ -1,0 +1,82 @@
+Preparations before starting the activity:
+> Prepare Values.yaml file for all sites.
+1. The Cluster Domain value needs to match the value of echo SCLUSTER_DOMAIN output in
+ZONE A 
+ZONE B
+ZONE C
+narahyd.cbdc.npcinet.tech
+
+hydnarb.retcbdc.npcinet.tech
+
+chesira.retcbdc.npcinet.tech
+
+1 ﻿﻿﻿The service type should be 'NodePort' (without quotes) and the particular port needs to be set under nodePorts.mysql
+
+2 ﻿﻿﻿In mariadbconfiguration, under ## TWO WAY REPLICA ##, make sure the values are properly set. (ZoneB has values ending with 2, rcom site with 1,chennai site with 3 and zoneA with 0). Change the server ids under #TWO WAY REPLICA# as per the port assigned to bank.
+
+3 ﻿﻿﻿now u can install mariadb. once it's running then check the logs.
+
+NOTE: Before doing below steps, make sure mariadb is running properly.
+1 ﻿﻿check the connectivity for mariadb ->
+telnet <bank-name> ‹site-domain> ‹service-port»
+Ex-
+Zone A:
+telnet tokenplatform.narahyd.retcbdc.npcinet.tech 32301
+Zone B:
+telnet tokenplatform.hydnarb.retcbdc.npcinet.tech 32301
+Zone C:
+telnet tokenplatform.chesira.retcbdc.npcinet.tech 32301
+
+2 ﻿﻿﻿Exec into the mariadb pod and take dump of db
+a) For tokenplatform:
+mysqldump --single-transaction -h tokenplatform-mariadb-galera.tokenplatform-ns-u root - p$TOKENPLATFORM_PASS tokenplatform > /data/tokenplatform-$(date +%Y-%m-%d-%H-%M-%S-%Z).sql
+
+b) For RBI
+mysqldump -single-transaction -h rbi-mariadb-galera.rbi-ns-u root -p$RBI_PASS rbi> /data/rbi-$(date +%Y-%m-%d-%H-%M-%S-%Z).sql
+3) restore the backup in zone B and zone C
+mysql -h ‹server-ip> -p <service-port>-u root -pSroot-password <b-name>< /data/backupfile
+
+
+NOTE: after restoring the backup successfully u can follow the below steps parallelly for zone A,B,C. Change the bank names and pwd, ns names as per your requirement.
+
+Tokenplatform:
+CREATE USER 'replication'@'%' IDENTIFIED BY '2FtujxwReN16B6T;
+GRANT REPLICATION SLAVE ON * * TO 'replication'@'%;
+FLUSH PRIVILEGES;
+SHOW GLOBAL VARIABLES LIKE "%query%";
+SET GLOBAL gtid ignore_duplicates=ON;
+SET GLOBAL query_cache_size=0;
+SET GLOBAL query_cache_type=OFF;
+SHOW GLOBAL VARIABLES LIKE "%query%";
+SHOW GLOBAL VARIABLES LIKE "%gtid%";
+[Note: take the gtid_binlog_pos from all sites and set the gtid_ slave_pos)
+SET GLOBAL gtid_slave_pos = "™;
+
+CHANGE MASTER 'zonea TO
+MASTER_HOST="tokenplatform-mariadb.narahyd.cbdc.npcinet.tech",
+MASTER_PORT=32301,
+MASTER_USER="replication",
+MASTER_PASSWORD="2FtujxwReN16B6T",
+MASTER_USE_GTID=slave_pos;
+
+CHANGE MASTER 'zoneb' TO
+MASTER_HOST="tokenplatform-mariadb.hydnarb.retcbdc.npcinet.tech",
+MASTER_PORT=32301,
+MASTER_USER="replication",
+MASTER_PASSWORD="2FtujxwReN16B6T",
+MASTER_USE_GTID=slave_pos;
+
+CHANGE MASTER 'zonec' TO
+MASTER_HOST="tokenplatform-mariadb.chesira.retcbdc.npcinet.tech",
+MASTER_PORT=32301,
+MASTER_USER="replication",
+MASTER_ PASSWORD="2FtujxwReN16B6T",
+MASTER_USE_GTID=slave_pos;
+
+START SLAVE 'zonea';
+START SLAVE 'zoneb';
+START SLAVE 'zonec';
+
+SHOW SLAVE 'zonea' STATUS\G
+SHOW SLAVE 'zoneb' STATUS\G
+SHOW SLAVE 'zonec' STATUS\G
